@@ -5,7 +5,7 @@ const app = express()
 
 const API = "https://jakpotgwab.geightdors.net/glms/v1/notify/taixiu?platform_id=g8&gid=vgmn_101"
 
-// lưu kết quả trước
+// lưu kết quả phiên trước
 let last = {
  phien:null,
  d1:null,
@@ -15,7 +15,7 @@ let last = {
  ket_qua:null
 }
 
-// lưu lịch sử
+// lưu lịch sử 100 phiên
 let history = []
 
 app.get("/taixiu", async (req,res)=>{
@@ -32,9 +32,6 @@ app.get("/taixiu", async (req,res)=>{
 
   const d = data.data[0]
 
-  const tai = d.bs.find(x => x.eid === 1)
-  const xiu = d.bs.find(x => x.eid === 2)
-
   let d1 = d.d1 || null
   let d2 = d.d2 || null
   let d3 = d.d3 || null
@@ -42,14 +39,14 @@ app.get("/taixiu", async (req,res)=>{
   let tong = (d1 && d2 && d3) ? d1+d2+d3 : null
   let ket_qua = tong ? (tong >= 11 ? "tai":"xiu") : null
 
-  // nếu null giữ kết quả cũ
+  // nếu null thì giữ kết quả cũ
   if(d1 === null) d1 = last.d1
   if(d2 === null) d2 = last.d2
   if(d3 === null) d3 = last.d3
   if(tong === null) tong = last.tong
   if(ket_qua === null) ket_qua = last.ket_qua
 
-  // nếu phiên mới thì lưu lịch sử
+  // nếu phiên mới thì lưu history
   if(last.phien !== d.sid && ket_qua){
 
    history.unshift({
@@ -74,24 +71,9 @@ app.get("/taixiu", async (req,res)=>{
    ket_qua
   }
 
-  const jsonVN = {
-
-   trang_thai:data.status,
+  const result = {
 
    phien:d.sid,
-
-   trang_thai_phien:d.cmd === 2007 ? "dang_cuoc":"ket_qua",
-
-   cuoc:{
-    tai:{
-     nguoi:tai.bc,
-     tien:tai.v
-    },
-    xiu:{
-     nguoi:xiu.bc,
-     tien:xiu.v
-    }
-   },
 
    xuc_xac:{
     d1,
@@ -102,13 +84,16 @@ app.get("/taixiu", async (req,res)=>{
 
    ket_qua,
 
+   // chuỗi TX (phiên mới bên phải)
    chuoi: history
+   .slice()
+   .reverse()
    .map(x => x.ket_qua === "tai" ? "T":"X")
    .join("")
 
   }
 
-  res.json(jsonVN)
+  res.json(result)
 
  }catch(err){
 
@@ -135,6 +120,8 @@ app.get("/history",(req,res)=>{
 app.get("/pattern",(req,res)=>{
 
  const pattern = history
+ .slice()
+ .reverse()
  .map(x => x.ket_qua === "tai" ? "T":"X")
  .join("")
 
@@ -143,7 +130,6 @@ app.get("/pattern",(req,res)=>{
  })
 
 })
-
 
 app.listen(3000,()=>{
  console.log("API tai xiu dang chay port 3000")
