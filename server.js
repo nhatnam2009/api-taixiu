@@ -5,6 +5,19 @@ const app = express()
 
 const API = "https://jakpotgwab.geightdors.net/glms/v1/notify/taixiu?platform_id=g8&gid=vgmn_101"
 
+// lưu kết quả trước
+let last = {
+ phien:null,
+ d1:null,
+ d2:null,
+ d3:null,
+ tong:null,
+ ket_qua:null
+}
+
+// lưu lịch sử
+let history = []
+
 app.get("/taixiu", async (req,res)=>{
 
  try{
@@ -22,39 +35,77 @@ app.get("/taixiu", async (req,res)=>{
   const tai = d.bs.find(x => x.eid === 1)
   const xiu = d.bs.find(x => x.eid === 2)
 
-  const d1 = d.d1 || null
-  const d2 = d.d2 || null
-  const d3 = d.d3 || null
+  let d1 = d.d1 || null
+  let d2 = d.d2 || null
+  let d3 = d.d3 || null
 
-  const tong = d1 && d2 && d3 ? d1 + d2 + d3 : null
+  let tong = (d1 && d2 && d3) ? d1+d2+d3 : null
+  let ket_qua = tong ? (tong >= 11 ? "tai":"xiu") : null
 
-  const ket_qua = tong ? (tong >= 11 ? "tai" : "xiu") : null
+  // nếu null giữ kết quả cũ
+  if(d1 === null) d1 = last.d1
+  if(d2 === null) d2 = last.d2
+  if(d3 === null) d3 = last.d3
+  if(tong === null) tong = last.tong
+  if(ket_qua === null) ket_qua = last.ket_qua
+
+  // nếu phiên mới thì lưu lịch sử
+  if(last.phien !== d.sid && ket_qua){
+
+   history.unshift({
+    phien:d.sid,
+    ket_qua,
+    tong,
+    xuc_xac:[d1,d2,d3]
+   })
+
+   if(history.length > 100){
+    history.pop()
+   }
+
+  }
+
+  last = {
+   phien:d.sid,
+   d1,
+   d2,
+   d3,
+   tong,
+   ket_qua
+  }
 
   const jsonVN = {
-   trang_thai: data.status,
-   phien: d.sid,
 
-   trang_thai_phien: d.cmd === 2007 ? "dang_cuoc" : "ket_qua",
+   trang_thai:data.status,
+
+   phien:d.sid,
+
+   trang_thai_phien:d.cmd === 2007 ? "dang_cuoc":"ket_qua",
 
    cuoc:{
     tai:{
-     nguoi: tai.bc,
-     tien: tai.v
+     nguoi:tai.bc,
+     tien:tai.v
     },
     xiu:{
-     nguoi: xiu.bc,
-     tien: xiu.v
+     nguoi:xiu.bc,
+     tien:xiu.v
     }
    },
 
    xuc_xac:{
-    d1:d1,
-    d2:d2,
-    d3:d3,
-    tong:tong
+    d1,
+    d2,
+    d3,
+    tong
    },
 
-   ket_qua:ket_qua
+   ket_qua,
+
+   chuoi: history
+   .map(x => x.ket_qua === "tai" ? "T":"X")
+   .join("")
+
   }
 
   res.json(jsonVN)
@@ -71,6 +122,29 @@ app.get("/taixiu", async (req,res)=>{
 
 })
 
+
+// API lịch sử
+
+app.get("/history",(req,res)=>{
+ res.json(history)
+})
+
+
+// API chuỗi TX
+
+app.get("/pattern",(req,res)=>{
+
+ const pattern = history
+ .map(x => x.ket_qua === "tai" ? "T":"X")
+ .join("")
+
+ res.json({
+  chuoi:pattern
+ })
+
+})
+
+
 app.listen(3000,()=>{
- console.log("API trung gian dang chay port 3000")
+ console.log("API tai xiu dang chay port 3000")
 })
